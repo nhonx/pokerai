@@ -1,0 +1,25 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { TableState } from '@/lib/poker/types';
+import { recordTableStateToFile, ensureTableDir } from '@/lib/server/tableMemory';
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { state } = body as { state: TableState };
+
+    if (!state || !state.id) {
+      return NextResponse.json({ error: 'Missing table state or id' }, { status: 400 });
+    }
+
+    ensureTableDir(state.id);
+    recordTableStateToFile(state);
+
+    return NextResponse.json({ success: true, tableId: state.id });
+  } catch (error: any) {
+    console.error('API /api/table/record error:', error);
+    return NextResponse.json(
+      { error: error?.message || 'Failed to record table state' },
+      { status: 500 }
+    );
+  }
+}
