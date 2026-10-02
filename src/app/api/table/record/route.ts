@@ -11,8 +11,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing table state or id' }, { status: 400 });
     }
 
-    ensureTableDir(state.id);
-    recordTableStateToFile(state);
+    try {
+      ensureTableDir(state.id);
+      recordTableStateToFile(state);
+    } catch (fsErr) {
+      console.warn('Non-fatal: Unable to record table state to filesystem:', fsErr);
+    }
 
     return NextResponse.json({ success: true, tableId: state.id });
   } catch (error: any) {

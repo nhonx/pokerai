@@ -27,14 +27,21 @@ export async function POST(request: NextRequest) {
 
     const player = state.players[playerIndex];
 
-    // Ensure folder inprogress/<tableId>/ exists
-    ensureTableDir(state.id);
-
-    // Persist current table state & update player behavior statistics
-    recordTableStateToFile(state);
+    // Ensure folder inprogress/<tableId>/ exists and persist current table state
+    try {
+      ensureTableDir(state.id);
+      recordTableStateToFile(state);
+    } catch (fsErr) {
+      console.warn('Non-fatal: Failed to prepare table directory or record state:', fsErr);
+    }
 
     // Read the file-based memory context for this table to inject into AI prompt
-    const memoryContext = getTableMemoryContext(state.id);
+    let memoryContext = '';
+    try {
+      memoryContext = getTableMemoryContext(state.id);
+    } catch (fsErr) {
+      console.warn('Non-fatal: Failed to load table memory context:', fsErr);
+    }
 
     // AI model is determined by the player's assigned model, or default
     const modelToUse = player.model || DEFAULT_BACKEND_MODEL;
@@ -54,22 +61,26 @@ export async function POST(request: NextRequest) {
     );
 
     // Write trace and response to inprogress/<tableId>/<playerName>.log
-    logAIDecisionToFile({
-      timestamp: new Date().toISOString(),
-      tableId: state.id,
-      handCount: state.handCount,
-      street: state.phase,
-      player,
-      modelUsed: modelToUse,
-      systemPrompt: result.trace.systemPrompt,
-      userPrompt: result.trace.userPrompt,
-      httpStatus: result.trace.httpStatus,
-      latencyMs: result.trace.latencyMs,
-      rawResponse: result.trace.rawResponse,
-      parsedDecision: result.decision,
-      error: result.trace.error,
-      isFallback: result.trace.isFallback,
-    });
+    try {
+      logAIDecisionToFile({
+        timestamp: new Date().toISOString(),
+        tableId: state.id,
+        handCount: state.handCount,
+        street: state.phase,
+        player,
+        modelUsed: modelToUse,
+        systemPrompt: result.trace.systemPrompt,
+        userPrompt: result.trace.userPrompt,
+        httpStatus: result.trace.httpStatus,
+        latencyMs: result.trace.latencyMs,
+        rawResponse: result.trace.rawResponse,
+        parsedDecision: result.decision,
+        error: result.trace.error,
+        isFallback: result.trace.isFallback,
+      });
+    } catch (fsErr) {
+      console.warn('Non-fatal: Failed to log AI decision to file:', fsErr);
+    }
 
     return NextResponse.json({ decision: result.decision });
   } catch (error: any) {

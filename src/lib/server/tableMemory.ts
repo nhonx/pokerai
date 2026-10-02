@@ -1,24 +1,36 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { TableState, Player, PlayerAction } from '../poker/types';
 
 /**
  * Returns safe filesystem path for a table under workspace /inprogress/<tableId>/
+ * On serverless platforms like Vercel or AWS Lambda, project root is read-only.
+ * We fall back to os.tmpdir() (/tmp) to allow writes without throwing EROFS.
  */
 export function getTableDir(tableId: string): string {
   const safeId = tableId.replace(/[^a-zA-Z0-9_-]/g, '_');
-  return path.join(process.cwd(), 'inprogress', safeId);
+  const baseDir =
+    process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
+      ? path.join(os.tmpdir(), 'inprogress')
+      : path.join(process.cwd(), 'inprogress');
+  return path.join(baseDir, safeId);
 }
 
 /**
- * Ensures table directory exists
+ * Ensures table directory exists safely without throwing on read-only environments
  */
-export function ensureTableDir(tableId: string): string {
-  const dir = getTableDir(tableId);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+export function ensureTableDir(tableId: string): string | null {
+  try {
+    const dir = getTableDir(tableId);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    return dir;
+  } catch (err) {
+    console.warn(`[tableMemory] Unable to create directory for table ${tableId}:`, err);
+    return null;
   }
-  return dir;
 }
 
 /**
@@ -49,6 +61,8 @@ export interface PlayerStats {
 export function recordTableStateToFile(state: TableState): void {
   try {
     const dir = ensureTableDir(state.id);
+    if (!dir) return;
+
     const historyPath = path.join(dir, 'history.txt');
     const behaviorPath = path.join(dir, 'player_behavior.txt');
     const statsJsonPath = path.join(dir, 'player_stats.json');
@@ -181,6 +195,8 @@ export interface AIDecisionTraceData {
 export function logAIDecisionToFile(trace: AIDecisionTraceData): void {
   try {
     const dir = ensureTableDir(trace.tableId);
+    if (!dir) return;
+
     const safePlayerName = getSafePlayerFileName(trace.player.name);
     const logFilePath = path.join(dir, `${safePlayerName}.log`);
 
