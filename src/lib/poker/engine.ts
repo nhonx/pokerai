@@ -20,24 +20,53 @@ export const DEFAULT_SETTINGS: GameSettings = {
   numPlayers: 4,
   model: 'backend-managed',
   turnTimeoutSeconds: 30,
+  reasoningEffort: 'low',
 };
 
 const AI_AVATARS = ['🤖', '⚡', '🧠', '💎', '🐋', '🔮', '🎭', '🦊', '🦅', '🦁'];
 const AI_PERSONAS = ['shark', 'gto', 'gambler', 'station', 'rock'];
 
+const FUNNY_AI_NAMES = [
+  'Bluffing Bob',
+  'Cowboy Carl',
+  'Lucky Luke',
+  'Slick Rick',
+  'Wild Bill',
+  'Chips McGee',
+  'All-In Annie',
+  'Dusty Pete',
+  'Rusty Nails',
+  'Poker Face Phil',
+  'Ace High Tex',
+  'Gumbo Joe',
+  'Shady Slim',
+  'Two-Pair Tony',
+  'Calamity Jane',
+  'Blind Betsy',
+  'Snake Eyes Sam',
+  'Deuce Bigalow',
+  'Doc Holiday',
+  'Whiskey Pete',
+  'Cactus Jack',
+  'River Rat Roy',
+];
+
 /**
- * Randomly picks distinct AI models from the available models list
+ * Randomly picks distinct AI models and assigns short, funny, unique poker names
  */
 export function pickRandomAIModels(count: number) {
   const modelList = ALL_MODELS && ALL_MODELS.length > 0 ? ALL_MODELS : RECOMMENDED_MODELS;
 
-  // Shuffle models to pick random models
-  const shuffled = [...modelList].sort(() => Math.random() - 0.5);
-  const selected = shuffled.slice(0, count);
+  // Shuffle models
+  const shuffledModels = [...modelList].sort(() => Math.random() - 0.5);
+  const selectedModels = shuffledModels.slice(0, count);
 
-  return selected.map((model, idx) => ({
+  // Shuffle funny names to guarantee uniqueness
+  const shuffledNames = [...FUNNY_AI_NAMES].sort(() => Math.random() - 0.5);
+
+  return selectedModels.map((model, idx) => ({
     id: `ai-${Date.now()}-${idx}-${model.id.replace(/[^a-zA-Z0-9]/g, '-')}`,
-    name: model.name, // Set name directly to its using model
+    name: shuffledNames[idx % shuffledNames.length],
     model: model.id,
     avatar: AI_AVATARS[idx % AI_AVATARS.length],
     personaId: AI_PERSONAS[idx % AI_PERSONAS.length],
@@ -56,6 +85,7 @@ export interface CreateTableOptions {
   startingChips: number;
   smallBlind: number;
   bigBlind: number;
+  reasoningEffort?: import('./types').ReasoningEffort;
 }
 
 export function createCustomTable(options: CreateTableOptions): TableState {
@@ -65,6 +95,7 @@ export function createCustomTable(options: CreateTableOptions): TableState {
     startingChips = 1000,
     smallBlind = 10,
     bigBlind = 20,
+    reasoningEffort = 'low',
   } = options;
 
   const validNumAI = Math.max(1, Math.min(5, numAIPlayers));
@@ -124,6 +155,7 @@ export function createCustomTable(options: CreateTableOptions): TableState {
       numPlayers: allPlayers.length,
       model: 'backend-managed',
       turnTimeoutSeconds: 30,
+      reasoningEffort,
     },
     handCount: 0,
     statusMessage: 'Ready to play! Click "Deal Hand" to begin.',
@@ -136,6 +168,7 @@ export function createInitialTable(settings: GameSettings = DEFAULT_SETTINGS): T
     startingChips: settings.startingChips,
     smallBlind: settings.smallBlind,
     bigBlind: settings.bigBlind,
+    reasoningEffort: settings.reasoningEffort || 'low',
   });
 }
 

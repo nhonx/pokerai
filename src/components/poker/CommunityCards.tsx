@@ -18,7 +18,7 @@ export const CommunityCards: React.FC<CommunityCardsProps> = ({ cards, winningCa
   const slotLabels = ['FLOP', 'FLOP', 'FLOP', 'TURN', 'RIVER'];
 
   return (
-    <div className="flex items-center justify-center gap-2 md:gap-3 p-2 bg-black/40 backdrop-blur-md rounded-2xl border border-amber-500/20 shadow-2xl">
+    <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 md:gap-3 p-1.5 sm:p-2.5 md:p-3 bg-black/40 backdrop-blur-md rounded-2xl border border-amber-600/30 shadow-[0_8px_30px_rgba(0,0,0,0.7)]">
       {Array.from({ length: 5 }).map((_, idx) => {
         const card = cards[idx];
         return (
@@ -26,8 +26,8 @@ export const CommunityCards: React.FC<CommunityCardsProps> = ({ cards, winningCa
             {card ? (
               <PlayingCard card={card} isWinning={isWinning(card)} size="md" />
             ) : (
-              <div className="w-14 h-20 border-2 border-dashed border-emerald-400/20 rounded-lg flex flex-col items-center justify-center text-[10px] font-mono tracking-wider text-emerald-400/40 select-none">
-                <span className="opacity-40">{slotLabels[idx]}</span>
+              <div className="w-9 h-13 sm:w-12 sm:h-17 md:w-15 md:h-21 border border-dashed border-amber-400/25 rounded-md sm:rounded-lg md:rounded-xl bg-black/25 flex flex-col items-center justify-center text-[8px] sm:text-[10px] font-mono tracking-wider text-amber-300/40 select-none shadow-inner">
+                <span className="font-bold">{slotLabels[idx]}</span>
               </div>
             )}
           </div>

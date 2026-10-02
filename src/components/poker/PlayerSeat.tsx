@@ -33,26 +33,35 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
   };
 
   const persona = player.personaId ? AI_PERSONAS[player.personaId] : null;
+  const isTopSeat = positionClass.includes('top-');
 
   return (
     <div
-      className={`absolute flex flex-col items-center select-none transition-all duration-300 ${positionClass} ${
+      className={`absolute flex flex-col items-center select-none transition-all duration-300 z-20 ${positionClass} ${
         player.hasFolded ? 'opacity-40 grayscale-[40%]' : ''
       }`}
     >
-      {/* AI Speech Bubble */}
+      {/* AI Speech Bubble - Dynamically oriented so it never goes off table or overlaps rail */}
       {player.tableTalk && !player.hasFolded && (
-        <div className="absolute -top-14 z-30 max-w-[210px] bg-slate-900/95 text-amber-200 text-xs px-3 py-1.5 rounded-xl border border-amber-400/40 shadow-2xl backdrop-blur-md animate-bounce [animation-duration:3s]">
-          <div className="line-clamp-2 italic text-center font-sans font-medium">
+        <div
+          className={`absolute z-50 max-w-[160px] sm:max-w-[220px] bg-[#1e0e06]/98 text-amber-100 text-[10px] sm:text-xs px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl border-2 border-amber-400 shadow-[0_8px_25px_rgba(0,0,0,0.95)] backdrop-blur-md animate-bounce [animation-duration:3s] ${
+            isTopSeat ? 'top-[calc(100%+8px)]' : 'bottom-[calc(100%+8px)]'
+          }`}
+        >
+          <div className="line-clamp-2 italic text-center font-sans font-semibold drop-shadow-sm">
             &ldquo;{player.tableTalk}&rdquo;
           </div>
-          {/* Arrow */}
-          <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-slate-900 border-r border-b border-amber-400/40 rotate-45" />
+          {/* Arrow pointing towards player pod */}
+          {isTopSeat ? (
+            <div className="absolute left-1/2 -top-1.5 -translate-x-1/2 w-2.5 h-2.5 bg-[#1e0e06] border-l-2 border-t-2 border-amber-400 rotate-45" />
+          ) : (
+            <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-2.5 h-2.5 bg-[#1e0e06] border-r-2 border-b-2 border-amber-400 rotate-45" />
+          )}
         </div>
       )}
 
-      {/* Hole Cards */}
-      <div className="flex -space-x-4 mb-1.5 z-20">
+      {/* Hole Cards - Positioned clearly above pod with no overlapping badges */}
+      <div className="flex -space-x-3 sm:-space-x-4 mb-1 z-10">
         {player.cards.length === 2 ? (
           <>
             <PlayingCard
@@ -71,88 +80,97 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
             />
           </>
         ) : (
-          <div className="h-14 flex items-center justify-center text-xs text-slate-500 font-mono italic">
+          <div className="h-12 sm:h-14 flex items-center justify-center text-[10px] sm:text-xs text-amber-200/50 font-mono italic">
             {player.chips === 0 ? 'Out of chips' : 'Waiting...'}
           </div>
         )}
       </div>
 
-      {/* Main Avatar Pod */}
+      {/* Main Avatar Pod (Texas Saloon Leather & Brass Frame) */}
       <div className="relative group">
         <div
-          className={`relative flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950/95 border backdrop-blur-lg shadow-2xl transition-all duration-300 ${
+          className={`relative flex items-center gap-1.5 sm:gap-2.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl bg-gradient-to-b from-[#2a170c]/95 via-[#1a0e07]/95 to-[#100804]/95 border backdrop-blur-md shadow-2xl transition-all duration-300 ${
             isCurrentTurn
-              ? 'border-amber-400 ring-4 ring-amber-400/50 shadow-[0_0_20px_rgba(251,191,36,0.6)] scale-105'
-              : 'border-slate-700/60'
+              ? 'border-amber-400 ring-2 sm:ring-4 ring-amber-400/60 shadow-[0_0_25px_rgba(251,191,36,0.7)] scale-105'
+              : 'border-amber-800/40 hover:border-amber-700/60'
           }`}
         >
           {/* Avatar Icon */}
           <div className="relative">
-            <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-xl shadow-inner">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-amber-950/80 to-stone-900 border border-amber-700/50 flex items-center justify-center text-base sm:text-xl shadow-inner">
               {player.avatar}
             </div>
-
-            {/* Position Badges */}
-            {isDealer && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white text-slate-900 border border-slate-400 flex items-center justify-center text-[10px] font-black shadow-md">
-                D
-              </span>
-            )}
-            {isSmallBlind && (
-              <span className="absolute -bottom-1 -left-1 px-1 rounded bg-blue-600 text-white text-[9px] font-bold">
-                SB
-              </span>
-            )}
-            {isBigBlind && (
-              <span className="absolute -bottom-1 -left-1 px-1 rounded bg-amber-600 text-white text-[9px] font-bold">
-                BB
-              </span>
-            )}
           </div>
 
           {/* Name & Chips */}
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
+          <div className="flex flex-col text-left">
+            <div className="flex items-center gap-1">
               <span
-                className="text-xs font-bold text-slate-100 max-w-[130px] sm:max-w-[160px] truncate"
+                className="text-[11px] sm:text-xs font-bold text-amber-100 max-w-[80px] sm:max-w-[130px] truncate tracking-tight"
                 title={player.name}
               >
                 {player.name}
               </span>
               {player.isAI && (
-                <span className="text-[9px] font-mono uppercase px-1 rounded bg-purple-900/80 text-purple-300 border border-purple-500/30">
+                <span className="text-[8px] sm:text-[9px] font-mono uppercase px-1 rounded bg-amber-900/60 text-amber-300 border border-amber-600/30">
                   AI
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1 text-xs font-mono font-bold text-amber-400">
+            <div className="flex items-center gap-1 text-[11px] sm:text-xs font-mono font-black text-amber-400">
               <span>${player.chips.toLocaleString()}</span>
             </div>
           </div>
         </div>
 
+        {/* Position Badges - Mid-height on sides, completely clear of cards above and actions below */}
+        {isDealer && (
+          <div
+            className="absolute -left-2.5 sm:-left-3 top-1/2 -translate-y-1/2 z-30 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-b from-amber-300 via-amber-400 to-yellow-500 border border-amber-200 text-stone-950 flex items-center justify-center text-[9px] sm:text-[10px] font-black shadow-lg"
+            title="Dealer Button"
+          >
+            ★D
+          </div>
+        )}
+        {isSmallBlind && (
+          <div
+            className="absolute -right-2.5 sm:-right-3 top-1/2 -translate-y-1/2 z-30 px-1 sm:px-1.5 py-0.5 rounded-full bg-gradient-to-b from-blue-500 to-blue-700 border border-blue-300 text-white text-[8px] sm:text-[9px] font-bold shadow-md"
+            title="Small Blind"
+          >
+            SB
+          </div>
+        )}
+        {isBigBlind && (
+          <div
+            className="absolute -right-2.5 sm:-right-3 top-1/2 -translate-y-1/2 z-30 px-1 sm:px-1.5 py-0.5 rounded-full bg-gradient-to-b from-amber-600 to-amber-800 border border-amber-300 text-white text-[8px] sm:text-[9px] font-bold shadow-md"
+            title="Big Blind"
+          >
+            BB
+          </div>
+        )}
+
         {/* Persona Tooltip on Hover */}
         {persona && (
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-40 w-48 p-2 bg-slate-950/95 border border-purple-500/40 rounded-lg text-[10px] text-slate-300 shadow-xl backdrop-blur-md pointer-events-none">
-            <div className="font-bold text-purple-300">{persona.archetype}</div>
-            <div className="mt-0.5 text-slate-400 leading-tight">{persona.styleDescription}</div>
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 w-44 sm:w-48 p-2 bg-[#1b0d06]/95 border border-amber-600/50 rounded-lg text-[10px] text-amber-200/90 shadow-xl backdrop-blur-md pointer-events-none">
+            <div className="font-bold text-amber-300">{persona.archetype}</div>
+            <div className="mt-0.5 text-stone-300 leading-tight">{persona.styleDescription}</div>
           </div>
         )}
       </div>
 
       {/* Action / Showdown / Bet Status */}
-      <div className="mt-1.5 flex flex-col items-center gap-1">
+      <div className="mt-1 flex flex-col items-center gap-0.5">
         {/* Last Action Label */}
         {player.lastAction && (
           <span
-            className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-md ${
+            className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-md ${
               player.lastAction.type === 'FOLD'
-                ? 'bg-rose-950/80 text-rose-300 border border-rose-800'
+                ? 'bg-rose-950/90 text-rose-300 border border-rose-800'
                 : player.lastAction.type === 'CHECK'
-                ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
+                ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700'
                 : player.lastAction.type === 'ALL_IN'
-                ? 'bg-amber-500 text-slate-950 font-black animate-pulse'
-                : 'bg-indigo-950/80 text-indigo-300 border border-indigo-700'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-stone-950 font-black animate-pulse border border-yellow-200'
+                : 'bg-amber-950/90 text-amber-300 border border-amber-700'
             }`}
           >
             {player.lastAction.text}
@@ -168,7 +186,7 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
 
         {/* Showdown Hand Evaluation */}
         {player.showdownHand && !player.hasFolded && (
-          <div className="text-[10px] font-bold text-amber-300 bg-black/60 px-2 py-0.5 rounded border border-amber-500/30 text-center max-w-[160px] truncate">
+          <div className="text-[9px] sm:text-[10px] font-bold text-amber-300 bg-black/75 px-2 py-0.5 rounded-md border border-amber-500/40 text-center max-w-[140px] sm:max-w-[170px] truncate shadow-lg">
             {player.showdownHand.description}
           </div>
         )}

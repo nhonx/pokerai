@@ -11,7 +11,8 @@ import { AIDecisionOutput } from './prompt';
 export function getLocalFallbackDecision(
   state: TableState,
   playerIndex: number,
-  persona: AIPersona = AI_PERSONAS.shark
+  persona: AIPersona = AI_PERSONAS.shark,
+  isTimeout: boolean = false
 ): AIDecisionOutput {
   const player = state.players[playerIndex];
   const valid = getValidActions(state, playerIndex);
@@ -21,8 +22,10 @@ export function getLocalFallbackDecision(
   // Score from 1 to 10
   const scoreCategory = handEval.categoryScore;
 
-  // Pick random quote from persona
-  const quote = persona.sampleQuotes[Math.floor(Math.random() * persona.sampleQuotes.length)];
+  // Fixed text on timeout as requested by user, or persona sample quote
+  const quote = isTimeout
+    ? "Running out of time, I won't thinking more!"
+    : persona.sampleQuotes[Math.floor(Math.random() * persona.sampleQuotes.length)];
 
   // If check is available:
   if (valid.canCheck) {

@@ -1,4 +1,4 @@
-import { TableState, Player } from '../poker/types';
+import { TableState } from '../poker/types';
 import { formatCard } from '../poker/deck';
 import { evaluateHand } from '../poker/evaluator';
 import { getValidActions, calculatePotOdds } from '../poker/engine';
@@ -12,11 +12,16 @@ export interface AIDecisionOutput {
   table_talk: string;
 }
 
+/**
+ * Builds a fair, compact, and token-optimized prompt for AI poker players.
+ * Treats AI like a human player sitting at a live table:
+ * Only public table information, private hole cards, and previous hand logs are provided.
+ */
 export function buildAIPrompt(
   state: TableState,
   playerIndex: number,
   persona: AIPersona,
-  memoryContext?: string
+  previousRoundsSummary?: string
 ): { system: string; user: string } {
   const player = state.players[playerIndex];
   const validActions = getValidActions(state, playerIndex);
@@ -26,74 +31,63 @@ export function buildAIPrompt(
   const allCards = [...player.cards, ...state.communityCards];
   const evaluation = evaluateHand(allCards);
 
-  const holeCardsStr = player.cards.map(formatCard).join(' ');
-  const communityCardsStr =
+  const holeCardsStr = player.cards.map(formatCard).join(' ') || 'None';
+  const boardCardsStr =
     state.communityCards.length > 0
       ? state.communityCards.map(formatCard).join(' ')
       : 'None (Pre-flop)';
 
-  const otherPlayersInfo = state.players.map((p, idx) => {
-    const isDealer = idx === state.dealerIndex ? ' [DEALER]' : '';
-    const isSB = idx === state.smallBlindIndex ? ' [SB]' : '';
-    const isBB = idx === state.bigBlindIndex ? ' [BB]' : '';
-    const status = p.hasFolded ? 'FOLDED' : p.isAllIn ? 'ALL-IN' : 'ACTIVE';
-    return `- ${p.name}${isDealer}${isSB}${isBB}: Chips $${p.chips}, Current Bet $${p.currentBet}, Status: ${status}`;
-  });
+  // Clean table players list (public information visible to anyone at the table)
+  const playersList = state.players
+    .map((p, idx) => {
+      const pos =
+        idx === state.dealerIndex
+          ? ' [D]'
+          : idx === state.smallBlindIndex
+          ? ' [SB]'
+          : idx === state.bigBlindIndex
+          ? ' [BB]'
+          : '';
+      const isYou = idx === playerIndex ? ' (YOU)' : '';
+      const status = p.hasFolded ? 'Folded' : p.isAllIn ? 'All-In' : 'Active';
+      return `${p.name}${pos}${isYou}: $${p.chips} chips, bet $${p.currentBet} [${status}]`;
+    })
+    .join('\n');
 
-  const recentHistory = state.history.slice(0, 8).join('\n');
+  // Allowed actions summary
+  const allowedList: string[] = [];
+  if (validActions.canCheck) allowedList.push('CHECK ($0)');
+  if (validActions.canCall) allowedList.push(`CALL ($${validActions.callAmount})`);
+  if (validActions.canBet) allowedList.push(`BET ($${validActions.minBet}-$${validActions.maxBet})`);
+  if (validActions.canRaise) allowedList.push(`RAISE ($${validActions.minRaise}-$${validActions.maxRaise})`);
+  if (validActions.canFold) allowedList.push('FOLD');
+  allowedList.push(`ALL_IN ($${player.chips})`);
 
-  const system = `${persona.systemPrompt}
+  // Recent hand actions (last 6 table events)
+  const recentActions = state.history.slice(0, 6).join(' | ');
 
-You are competing in a real Texas Hold'em game.
-CRITICAL RULES FOR DECISION:
-1. You must respond ONLY with a valid JSON object matching the schema below. No Markdown wrapping, no extra prose outside the JSON.
-2. Valid action types are:
-   - "FOLD" (only if facing a bet you do not want to call)
-   - "CHECK" (only allowed if canCheck is true: current bet to call is 0)
-   - "CALL" (only allowed if canCall is true, pays callAmount: $${validActions.callAmount})
-   - "BET" (only allowed if canBet is true, amount between $${validActions.minBet} and $${validActions.maxBet})
-   - "RAISE" (only allowed if canRaise is true, amount between $${validActions.minRaise} and $${validActions.maxRaise})
-   - "ALL_IN" (wagers all remaining chips: $${player.chips})
-3. If canCheck is true, DO NOT FOLD unless you want to forfeit for no reason. Checking is free!
-4. Strictly respect chip limits and minimum/maximum bets.
-5. Analyze the PERSISTED TABLE MEMORY to read opponent tendencies, identify aggressive or passive behaviors, and exploit their play styles.
+  const system = `You are ${player.name}, a Texas Hold'em player with a ${persona.archetype} style.
+Persona: ${persona.styleDescription}
+RULES:
+1. Fast response required. Do NOT write chain-of-thought, internal monologue, or markdown code blocks.
+2. Return ONLY a single raw JSON object matching:
+{"action":"FOLD"|"CHECK"|"CALL"|"BET"|"RAISE"|"ALL_IN","amount":number,"confidence":number,"internal_reasoning":"1 short sentence","table_talk":"1 witty in-character sentence"}`;
 
-JSON SCHEMA:
-{
-  "action": "FOLD" | "CHECK" | "CALL" | "BET" | "RAISE" | "ALL_IN",
-  "amount": number,
-  "confidence": number between 0 and 1,
-  "internal_reasoning": "brief 1-2 sentence poker logic in character",
-  "table_talk": "short 1 sentence dialogue spoken out loud to opponents in character"
-}`;
+  const user = `TABLE STATUS:
+Hand #${state.handCount} | Street: ${state.phase} | Pot: $${state.mainPot} | Current Bet: $${state.currentHighestBet}
+Your Cards: [${holeCardsStr}] (${evaluation.description})
+Board: [${boardCardsStr}]
+Your Chips: $${player.chips} | To Call: $${validActions.callAmount} (Pot Odds: ${potOdds.oddsPercent}%)
+Allowed Actions: ${allowedList.join(', ')}
 
-  const user = `CURRENT TABLE STATE:
-- Your Name: ${player.name}
-- Your Hole Cards: [ ${holeCardsStr} ]
-- Community Board: [ ${communityCardsStr} ]
-- Current Street: ${state.phase}
-- Your Hand Strength: ${evaluation.description}
-- Main Pot Size: $${state.mainPot}
-- Current Highest Bet on Table: $${state.currentHighestBet}
-- Your Current Bet This Round: $${player.currentBet}
-- Amount Needed To Call: $${validActions.callAmount}
-- Pot Odds: Need $${potOdds.toCall} to win pot of $${potOdds.totalPot} (${potOdds.oddsPercent}% required equity)
-- Your Remaining Chips: $${player.chips}
+Players:
+${playersList}
 
-VALID ACTIONS AVAILABLE TO YOU:
-- canCheck: ${validActions.canCheck}
-- canCall: ${validActions.canCall} (Amount: $${validActions.callAmount})
-- canBet: ${validActions.canBet} (Min: $${validActions.minBet}, Max: $${validActions.maxBet})
-- canRaise: ${validActions.canRaise} (Min: $${validActions.minRaise}, Max: $${validActions.maxRaise})
-- canFold: ${validActions.canFold}
+Recent Table Log:
+${recentActions || 'Hand started.'}
+${previousRoundsSummary ? `\nPrevious Rounds:\n${previousRoundsSummary}` : ''}
 
-PLAYERS AT TABLE:
-${otherPlayersInfo.join('\n')}
-
-RECENT TABLE ACTIONS:
-${recentHistory}
-${memoryContext ? `\n--- PERSISTED TABLE MEMORY & OPPONENT PROFILING ---\n${memoryContext}\n` : ''}
-Decide your action now as JSON.`;
+Respond with JSON decision:`;
 
   return { system, user };
 }

@@ -130,24 +130,28 @@ export function recordTableStateToFile(state: TableState): void {
 }
 
 /**
- * Loads the persisted memory context for a table to inject into LLM prompts.
+ * Loads a compact, fair behavioral summary of past hands for this table.
+ * Avoids duplicate log dumping to keep token usage minimal and fast.
  */
 export function getTableMemoryContext(tableId: string): string {
   try {
     const dir = getTableDir(tableId);
-    let memoryText = '';
+    const statsJsonPath = path.join(dir, 'player_stats.json');
+    if (!fs.existsSync(statsJsonPath)) return '';
 
-    const behaviorPath = path.join(dir, 'player_behavior.txt');
-    if (fs.existsSync(behaviorPath)) {
-      memoryText += fs.readFileSync(behaviorPath, 'utf-8') + '\n';
-    }
+    const statsRecord: Record<string, PlayerStats> = JSON.parse(
+      fs.readFileSync(statsJsonPath, 'utf-8')
+    );
+    const summaries = Object.values(statsRecord)
+      .map((st) => {
+        const totalActions = st.folds + st.calls + st.bets + st.raises;
+        if (totalActions === 0) return null;
+        const aggressiveRatio = Math.round(((st.bets + st.raises) / totalActions) * 100);
+        return `- ${st.name}: ${aggressiveRatio}% aggression (${st.folds} folds, ${st.calls} calls, ${st.bets + st.raises} bets/raises)`;
+      })
+      .filter(Boolean);
 
-    const historyPath = path.join(dir, 'history.txt');
-    if (fs.existsSync(historyPath)) {
-      memoryText += fs.readFileSync(historyPath, 'utf-8');
-    }
-
-    return memoryText.trim();
+    return summaries.length > 0 ? summaries.join('\n') : '';
   } catch (err) {
     console.warn('Could not read table memory context:', err);
     return '';

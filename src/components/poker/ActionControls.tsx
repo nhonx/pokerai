@@ -14,6 +14,7 @@ interface ActionControlsProps {
   onAllIn: () => void;
   onDealHand: () => void;
   onLeaveTable?: () => void;
+  onRebuy?: () => void;
 }
 
 export const ActionControls: React.FC<ActionControlsProps> = ({
@@ -25,6 +26,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
   onAllIn,
   onDealHand,
   onLeaveTable,
+  onRebuy,
 }) => {
   const isHandOver = state.phase === 'IDLE' || state.phase === 'HAND_OVER';
   const humanIndex = state.players.findIndex((p) => !p.isAI);
@@ -48,51 +50,93 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
     }
   }, [minWager]);
 
+  // When hand is over or game is completed:
   if (isHandOver) {
+    // Human is busted: DO NOT block screen. Display non-intrusive decision bar!
     if (isHumanBusted) {
       return (
-        <div className="flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md rounded-2xl border border-rose-500/40 shadow-2xl">
-          <button
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                localStorage.removeItem('pokerai_active_table');
-              }
-              onLeaveTable?.();
-            }}
-            className="px-8 py-3.5 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-black text-sm tracking-wide rounded-xl shadow-lg cursor-pointer uppercase"
-          >
-            Out of Chips — Exit to Lobby 💸
-          </button>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 sm:p-4 bg-[#1b0d06]/95 border-2 border-rose-500/40 rounded-2xl shadow-2xl max-w-xl mx-auto w-full backdrop-blur-md">
+          <div className="text-center sm:text-left">
+            <div className="flex items-center justify-center sm:justify-start gap-2">
+              <span className="text-rose-400 font-black text-xs uppercase tracking-wider">
+                💸 Out of Chips
+              </span>
+              <span className="text-[10px] text-amber-200/60 font-mono">
+                Hand #{state.handCount}
+              </span>
+            </div>
+            <p className="text-xs text-amber-100/90 mt-0.5">
+              Observe the final showdown above. You can return to lobby or rebuy.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  localStorage.removeItem('pokerai_active_table');
+                }
+                onLeaveTable?.();
+              }}
+              className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 border border-stone-600 text-stone-200 text-xs font-bold transition-colors cursor-pointer"
+            >
+              ← Exit to Lobby
+            </button>
+            {onRebuy && (
+              <button
+                onClick={() => {
+                  sounds.playChipClink();
+                  onRebuy();
+                }}
+                className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-stone-950 text-xs font-black tracking-wide shadow-lg transition-all active:scale-95 cursor-pointer uppercase"
+              >
+                Rebuy & Play ♠
+              </button>
+            )}
+          </div>
         </div>
       );
     }
 
+    // Human is the tournament champion
     if (isHumanWinner) {
       return (
-        <div className="flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md rounded-2xl border border-amber-400/50 shadow-2xl">
-          <button
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                localStorage.removeItem('pokerai_active_table');
-              }
-              onLeaveTable?.();
-            }}
-            className="px-8 py-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-sm tracking-wide rounded-xl shadow-lg cursor-pointer uppercase"
-          >
-            Table Won! — Return to Lobby 🏆
-          </button>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 sm:p-4 bg-[#1b0d06]/95 border-2 border-amber-400/60 rounded-2xl shadow-2xl max-w-xl mx-auto w-full backdrop-blur-md">
+          <div className="text-center sm:text-left">
+            <span className="text-amber-400 font-black text-xs uppercase tracking-wider flex items-center justify-center sm:justify-start gap-1">
+              🏆 Saloon Champion!
+            </span>
+            <p className="text-xs text-amber-100/90 mt-0.5">
+              You cleared the table and claimed all the chips!
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  localStorage.removeItem('pokerai_active_table');
+                }
+                onLeaveTable?.();
+              }}
+              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-stone-950 text-xs font-black tracking-wide shadow-lg transition-all active:scale-95 cursor-pointer uppercase"
+            >
+              Return to Lobby 🏆
+            </button>
+          </div>
         </div>
       );
     }
 
+    // Ready to deal next hand
     return (
-      <div className="flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md rounded-2xl border border-amber-500/30 shadow-2xl">
+      <div className="flex items-center justify-center p-2 sm:p-3">
         <button
           onClick={() => {
             sounds.playDealCard();
             onDealHand();
           }}
-          className="px-8 py-3.5 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-lg tracking-wide rounded-xl shadow-[0_0_25px_rgba(251,191,36,0.6)] transform transition-transform active:scale-95 cursor-pointer uppercase"
+          className="px-8 sm:px-12 py-3 sm:py-3.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-stone-950 font-black text-base sm:text-lg tracking-wider rounded-xl border-2 border-amber-300 shadow-[0_0_25px_rgba(245,158,11,0.6)] transform transition-transform active:scale-95 cursor-pointer uppercase font-saloon"
         >
           Deal Hand ♠
         </button>
@@ -100,14 +144,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
     );
   }
 
-  if (!isHumanTurn || !valid || !humanPlayer) {
-    const currentActive = state.players[state.currentTurnIndex];
-    return (
-      <div className="flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md rounded-2xl border border-slate-800 shadow-xl text-slate-400 font-mono text-sm animate-pulse">
-        Waiting for {currentActive ? currentActive.name : 'action'}...
-      </div>
-    );
-  }
+  const isInteractive = Boolean(isHumanTurn && valid && humanPlayer);
 
   // Quick preset handlers
   const handlePreset = (type: 'MIN' | '2.5X' | '3X' | 'HALF_POT' | 'POT' | 'ALL_IN') => {
@@ -136,55 +173,78 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
     }
   };
 
-  const isWagerAvailable = valid.canBet || valid.canRaise;
+  const canFold = Boolean(isInteractive && valid?.canFold);
+  const canCheck = Boolean(isInteractive && valid?.canCheck);
+  const canCall = Boolean(isInteractive && valid?.canCall);
+  const callAmount = valid?.callAmount ?? 0;
+  const canBet = Boolean(isInteractive && valid?.canBet);
+  const canRaise = Boolean(isInteractive && valid?.canRaise);
+  const isWagerAvailable = Boolean(isInteractive && (canBet || canRaise));
+  const chips = humanPlayer?.chips ?? 0;
 
   return (
-    <div className="flex flex-col gap-3 p-4 bg-slate-950/90 backdrop-blur-xl rounded-2xl border border-amber-500/30 shadow-[0_0_30px_rgba(0,0,0,0.8)] max-w-2xl mx-auto w-full">
+    <div
+      className={`flex flex-col gap-2 sm:gap-3 p-2.5 sm:p-4 bg-[#1b0d06]/95 backdrop-blur-xl rounded-2xl border-2 border-amber-700/50 shadow-[0_10px_35px_rgba(0,0,0,0.9)] max-w-2xl mx-auto w-full transition-opacity duration-300 ${
+        isInteractive ? 'opacity-100' : 'opacity-40 pointer-events-none'
+      }`}
+    >
       {/* Quick Bet Presets (if bet/raise available) */}
       {isWagerAvailable && (
-        <div className="flex items-center justify-between gap-1.5 flex-wrap">
+        <div className="flex items-center justify-between gap-1 sm:gap-1.5 overflow-x-auto pb-1">
           <button
             onClick={() => handlePreset('MIN')}
-            className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 cursor-pointer"
+            className="px-2 sm:px-2.5 py-1 text-[10px] sm:text-xs font-mono font-bold rounded-lg bg-stone-900 hover:bg-stone-800 text-amber-200 border border-amber-700/40 cursor-pointer active:scale-95 transition-all"
           >
             Min
           </button>
           <button
             onClick={() => handlePreset('2.5X')}
-            className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 cursor-pointer"
+            className="px-2 sm:px-2.5 py-1 text-[10px] sm:text-xs font-mono font-bold rounded-lg bg-stone-900 hover:bg-stone-800 text-amber-200 border border-amber-700/40 cursor-pointer active:scale-95 transition-all"
           >
-            2.5x BB
+            2.5x
           </button>
           <button
             onClick={() => handlePreset('3X')}
-            className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 cursor-pointer"
+            className="px-2 sm:px-2.5 py-1 text-[10px] sm:text-xs font-mono font-bold rounded-lg bg-stone-900 hover:bg-stone-800 text-amber-200 border border-amber-700/40 cursor-pointer active:scale-95 transition-all"
           >
-            3x BB
+            3x
           </button>
           <button
             onClick={() => handlePreset('HALF_POT')}
-            className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 cursor-pointer"
+            className="px-2 sm:px-2.5 py-1 text-[10px] sm:text-xs font-mono font-bold rounded-lg bg-stone-900 hover:bg-stone-800 text-amber-200 border border-amber-700/40 cursor-pointer active:scale-95 transition-all"
           >
             ½ Pot
           </button>
           <button
             onClick={() => handlePreset('POT')}
-            className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 cursor-pointer"
+            className="px-2 sm:px-2.5 py-1 text-[10px] sm:text-xs font-mono font-bold rounded-lg bg-stone-900 hover:bg-stone-800 text-amber-200 border border-amber-700/40 cursor-pointer active:scale-95 transition-all"
           >
             Pot
           </button>
           <button
             onClick={() => handlePreset('ALL_IN')}
-            className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 cursor-pointer"
+            className="px-2.5 sm:px-3 py-1 text-[10px] sm:text-xs font-mono font-black rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-stone-950 border border-amber-400 cursor-pointer active:scale-95 transition-all"
           >
             All-In
           </button>
         </div>
       )}
 
-      {/* Slider & Amount Selector */}
+      {/* Slider & Quick Adjust for Touch/Mobile */}
       {isWagerAvailable && maxWager > minWager && (
-        <div className="flex items-center gap-4 px-1">
+        <div className="flex items-center gap-2 sm:gap-4 px-1">
+          {/* Step Down Button */}
+          <button
+            onClick={() =>
+              setBetAmount((prev) =>
+                Math.max(minWager, prev - state.settings.smallBlind)
+              )
+            }
+            className="w-7 h-7 rounded-lg bg-stone-900 border border-amber-700/50 text-amber-300 font-bold flex items-center justify-center text-sm active:scale-90"
+          >
+            -
+          </button>
+
           <input
             type="range"
             min={minWager}
@@ -192,36 +252,50 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
             step={state.settings.smallBlind}
             value={betAmount}
             onChange={(e) => setBetAmount(Number(e.target.value))}
-            className="flex-1 accent-amber-400 h-2 bg-slate-800 rounded-lg cursor-pointer"
+            className="flex-1 accent-amber-400 h-2 bg-stone-900 rounded-lg cursor-pointer"
           />
-          <span className="font-mono font-bold text-amber-400 text-sm w-20 text-right">
+
+          {/* Step Up Button */}
+          <button
+            onClick={() =>
+              setBetAmount((prev) =>
+                Math.min(maxWager, prev + state.settings.smallBlind)
+              )
+            }
+            className="w-7 h-7 rounded-lg bg-stone-900 border border-amber-700/50 text-amber-300 font-bold flex items-center justify-center text-sm active:scale-90"
+          >
+            +
+          </button>
+
+          <span className="font-mono font-black text-amber-400 text-xs sm:text-sm min-w-[70px] text-right">
             ${betAmount.toLocaleString()}
           </span>
         </div>
       )}
 
-      {/* Main Action Buttons */}
-      <div className="grid grid-cols-3 gap-2.5">
-        {/* Fold */}
+      {/* Main Action Buttons Deck */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {/* Fold Button */}
         <button
           onClick={() => {
             sounds.playFold();
             onFold();
           }}
-          disabled={!valid.canFold}
-          className="py-3 px-4 rounded-xl bg-gradient-to-b from-rose-900 to-rose-950 hover:from-rose-800 hover:to-rose-900 border border-rose-600 text-rose-100 font-bold text-sm tracking-wide shadow-md transition-all active:scale-95 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+          disabled={!canFold}
+          className="btn-saloon-fold py-2.5 sm:py-3.5 px-2 sm:px-4 rounded-xl text-stone-100 font-bold text-xs sm:text-sm tracking-wide transition-all active:scale-95 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed uppercase"
         >
           Fold
         </button>
 
-        {/* Check or Call */}
-        {valid.canCheck ? (
+        {/* Check or Call Button */}
+        {canCheck ? (
           <button
             onClick={() => {
               sounds.playKnock();
               onCheck();
             }}
-            className="py-3 px-4 rounded-xl bg-gradient-to-b from-emerald-800 to-emerald-950 hover:from-emerald-700 hover:to-emerald-900 border border-emerald-500 text-emerald-100 font-bold text-sm tracking-wide shadow-md transition-all active:scale-95 cursor-pointer"
+            disabled={!canCheck}
+            className="btn-saloon-check py-2.5 sm:py-3.5 px-2 sm:px-4 rounded-xl text-stone-100 font-bold text-xs sm:text-sm tracking-wide transition-all active:scale-95 cursor-pointer uppercase disabled:opacity-35 disabled:cursor-not-allowed"
           >
             Check
           </button>
@@ -231,32 +305,32 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
               sounds.playChipClink();
               onCall();
             }}
-            disabled={!valid.canCall}
-            className="py-3 px-4 rounded-xl bg-gradient-to-b from-blue-800 to-blue-950 hover:from-blue-700 hover:to-blue-900 border border-blue-500 text-blue-100 font-bold text-sm tracking-wide shadow-md transition-all active:scale-95 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+            disabled={!canCall}
+            className="btn-saloon-call py-2.5 sm:py-3.5 px-2 sm:px-4 rounded-xl text-stone-100 font-bold text-xs sm:text-sm tracking-wide transition-all active:scale-95 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed uppercase"
           >
-            Call ${valid.callAmount}
+            Call ${callAmount}
           </button>
         )}
 
-        {/* Bet, Raise, or All-In */}
+        {/* Bet, Raise, or All-In Button */}
         {isWagerAvailable ? (
           <button
             onClick={() => {
               sounds.playChipClink();
-              if (betAmount >= humanPlayer.chips) {
+              if (betAmount >= chips) {
                 sounds.playAllIn();
                 onAllIn();
               } else {
                 onBetRaise(betAmount);
               }
             }}
-            className="py-3 px-4 rounded-xl bg-gradient-to-b from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 border border-amber-300 text-slate-950 font-black text-sm tracking-wide shadow-[0_0_15px_rgba(251,191,36,0.5)] transition-all active:scale-95 cursor-pointer"
+            className="btn-saloon-raise py-2.5 sm:py-3.5 px-2 sm:px-4 rounded-xl text-stone-950 font-black text-xs sm:text-sm tracking-wide transition-all active:scale-95 cursor-pointer uppercase"
           >
-            {betAmount >= humanPlayer.chips
+            {betAmount >= chips
               ? 'ALL-IN'
-              : valid.canBet
+              : canBet
               ? `Bet $${betAmount}`
-              : `Raise to $${betAmount}`}
+              : `Raise $${betAmount}`}
           </button>
         ) : (
           <button
@@ -264,9 +338,10 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
               sounds.playAllIn();
               onAllIn();
             }}
-            className="py-3 px-4 rounded-xl bg-gradient-to-b from-amber-600 to-amber-700 text-slate-950 font-black text-sm shadow-md cursor-pointer"
+            disabled={!isInteractive}
+            className="btn-saloon-raise py-2.5 sm:py-3.5 px-2 sm:px-4 rounded-xl text-stone-950 font-black text-xs sm:text-sm shadow-md cursor-pointer uppercase disabled:opacity-35 disabled:cursor-not-allowed"
           >
-            All-In (${humanPlayer.chips})
+            All-In (${chips})
           </button>
         )}
       </div>

@@ -86,6 +86,8 @@ export interface HandResult {
   summary: string;
 }
 
+export type ReasoningEffort = 'none' | 'low' | 'medium' | 'high';
+
 export interface GameSettings {
   smallBlind: number;
   bigBlind: number;
@@ -94,6 +96,7 @@ export interface GameSettings {
   model: string;
   openRouterApiKey?: string;
   turnTimeoutSeconds: number;
+  reasoningEffort?: ReasoningEffort;
 }
 
 export interface TableState {

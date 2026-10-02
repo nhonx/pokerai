@@ -126,7 +126,8 @@ export async function getAIDecisionWithTrace(
   playerIndex: number,
   apiKey?: string,
   model: string = 'nvidia/nemotron-3-ultra-550b-a55b:free',
-  memoryContext?: string
+  memoryContext?: string,
+  reasoningEffort: import('../poker/types').ReasoningEffort = 'low'
 ): Promise<OpenRouterResult> {
   const startTime = Date.now();
   const player = state.players[playerIndex];
@@ -136,7 +137,7 @@ export async function getAIDecisionWithTrace(
 
   // If no API key provided, immediately use local fallback
   if (!apiKey || apiKey.trim() === '') {
-    const fallbackDecision = getLocalFallbackDecision(state, playerIndex, persona);
+    const fallbackDecision = getLocalFallbackDecision(state, playerIndex, persona, false);
     return {
       decision: fallbackDecision,
       trace: {
@@ -152,7 +153,16 @@ export async function getAIDecisionWithTrace(
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 14000); // 14-second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout as requested
+
+    // Configure reasoning effort based on UI settings
+    const reasoningPayload =
+      reasoningEffort === 'none'
+        ? { max_tokens: 0 }
+        : { effort: reasoningEffort };
+
+    const maxTokens =
+      reasoningEffort === 'high' ? 800 : reasoningEffort === 'medium' ? 400 : 220;
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -168,7 +178,9 @@ export async function getAIDecisionWithTrace(
           { role: 'system', content: system },
           { role: 'user', content: user },
         ],
-        temperature: 0.7,
+        temperature: 0.6,
+        max_tokens: maxTokens,
+        reasoning: reasoningPayload,
         response_format: { type: 'json_object' },
       }),
       signal: controller.signal,
@@ -180,7 +192,8 @@ export async function getAIDecisionWithTrace(
     if (!response.ok) {
       const errText = await response.text();
       console.warn(`OpenRouter HTTP ${response.status}: ${errText}`);
-      const fallbackDecision = getLocalFallbackDecision(state, playerIndex, persona);
+      const isTimeout = latencyMs >= 29000;
+      const fallbackDecision = getLocalFallbackDecision(state, playerIndex, persona, isTimeout);
       return {
         decision: fallbackDecision,
         trace: {
@@ -204,7 +217,7 @@ export async function getAIDecisionWithTrace(
       parsed = extractJSONFromContent(rawContent);
     } catch (parseError: any) {
       console.warn('JSON parsing error on model output:', parseError);
-      const fallbackDecision = getLocalFallbackDecision(state, playerIndex, persona);
+      const fallbackDecision = getLocalFallbackDecision(state, playerIndex, persona, false);
       return {
         decision: fallbackDecision,
         trace: {
@@ -236,8 +249,12 @@ export async function getAIDecisionWithTrace(
     };
   } catch (err: any) {
     const latencyMs = Date.now() - startTime;
-    console.warn('OpenRouter API request failed, executing local heuristic:', err?.message || err);
-    const fallbackDecision = getLocalFallbackDecision(state, playerIndex, persona);
+    const isTimeout = err?.name === 'AbortError' || latencyMs >= 29000;
+    console.warn(
+      `OpenRouter API request failed (timeout=${isTimeout}), executing local heuristic:`,
+      err?.message || err
+    );
+    const fallbackDecision = getLocalFallbackDecision(state, playerIndex, persona, isTimeout);
     return {
       decision: fallbackDecision,
       trace: {
@@ -245,7 +262,7 @@ export async function getAIDecisionWithTrace(
         userPrompt: user,
         latencyMs,
         parsedDecision: fallbackDecision,
-        error: `Exception: ${err?.message || String(err)}`,
+        error: isTimeout ? 'Timeout (30s limit exceeded)' : `Exception: ${err?.message || String(err)}`,
         isFallback: true,
       },
     };

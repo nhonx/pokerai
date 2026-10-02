@@ -42,8 +42,16 @@ export async function POST(request: NextRequest) {
     // AI API key is loaded from backend environment variable
     const apiKey = process.env.OPENROUTER_API_KEY || '';
 
-    // Execute decision with full trace metadata
-    const result = await getAIDecisionWithTrace(state, playerIndex, apiKey, modelToUse, memoryContext);
+    // Execute decision with configurable reasoning effort and full trace metadata
+    const reasoningEffort = state.settings.reasoningEffort || 'low';
+    const result = await getAIDecisionWithTrace(
+      state,
+      playerIndex,
+      apiKey,
+      modelToUse,
+      memoryContext,
+      reasoningEffort
+    );
 
     // Write trace and response to inprogress/<tableId>/<playerName>.log
     logAIDecisionToFile({
